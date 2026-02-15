@@ -43,7 +43,6 @@ function Dashboard() {
         onSelectUser={setSelectedUser} 
         onViewTimeEntries={setTimeEntriesUser} 
       />
-
       {selectedUser && (
         <UserDetailsModal 
           user={selectedUser} 

@@ -1,16 +1,105 @@
-# React + Vite
+# Rasptime Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Admin dashboard for the Rasptime timeclock system.
 
-Currently, two official plugins are available:
+## Tech Stack
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+- React 18 + Vite
+- Tailwind CSS
+- React Query
+- date-fns
 
-## React Compiler
+## Development
+```bash
+npm install
+npm run dev
+```
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+Opens at `http://localhost:5173`
 
-## Expanding the ESLint configuration
+## Production Deployment
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+### 1. Build
+```bash
+npm run build
+```
+
+Creates `dist/` folder with static files.
+
+### 2. Copy to Server
+```bash
+scp -r dist/* admshaulov@192.168.178.157:~/projects/rasptime-frontend/
+```
+
+### 3. Server Setup (First Time Only)
+
+#### Install Nginx
+```bash
+sudo apt update
+sudo apt install nginx -y
+```
+
+#### Create Nginx Config
+```bash
+sudo nano /etc/nginx/sites-available/rasptime
+```
+
+Paste:
+```nginx
+server {
+    listen 3000;
+    server_name _;
+
+    root /home/admshaulov/projects/rasptime-frontend;
+    index index.html;
+
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+
+    location /api {
+        proxy_pass http://localhost:8081;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+    }
+}
+```
+
+#### Enable Site
+```bash
+sudo ln -s /etc/nginx/sites-available/rasptime /etc/nginx/sites-enabled/
+sudo nginx -t
+sudo systemctl restart nginx
+```
+
+#### Set Permissions
+```bash
+chmod 755 /home/admshaulov
+chmod 755 /home/admshaulov/projects
+chmod 755 /home/admshaulov/projects/rasptime-frontend
+chmod -R 755 /home/admshaulov/projects/rasptime-frontend/*
+```
+
+### 4. Deploy Updates
+
+After building new version:
+```bash
+# From local machine
+scp -r dist/* admshaulov@192.168.178.157:~/projects/rasptime-frontend/
+
+# On server (if needed)
+sudo systemctl reload nginx
+```
+
+## URLs
+
+- **Development:** http://localhost:5173
+- **Production:** http://192.168.178.157:3000
+- **API Backend:** http://192.168.178.157:8081
+
+## Features
+
+- User list with status (clocked in/out)
+- User details modal (RFID, role, created date)
+- Time entries modal with date range filter
+- Total hours and days worked calculation
