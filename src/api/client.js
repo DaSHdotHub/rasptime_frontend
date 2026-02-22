@@ -30,6 +30,10 @@ export const api = {
     getTimeEntries: (userId, from, to) =>
         client.get(`/admin/time-entries?userId=${userId}&from=${from}&to=${to}`).then(res => res.data),
 
+    // Weekly Overview
+    getWeeklyOverview: (weekStart) =>
+    client.get(`/admin/weekly-overview?weekStart=${weekStart}`).then(res => res.data),
+    
     //Health
     health: () =>
         client.get(`/health`).then(res => res.data),
