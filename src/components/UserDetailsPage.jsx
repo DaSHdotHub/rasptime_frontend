@@ -107,6 +107,65 @@ function UserDetailsPage() {
   if (isLoading && !isNew) return <div className="p-8 text-center">Laden...</div>;
   if (!user && !isNew) return <div className="p-8 text-center">Benutzer nicht gefunden</div>;
 
+
+      // Add state
+    const [isWaitingForRfid, setIsWaitingForRfid] = useState(false);
+    const [registrationSessionId, setRegistrationSessionId] = useState(null);
+    const [countdown, setCountdown] = useState(30);
+
+    // Add registration functions
+    const startRfidRegistration = async () => {
+      try {
+        const response = await fetch('/api/admin/registration/start', {
+          method: 'POST',
+        });
+        const data = await response.json();
+        setRegistrationSessionId(data.sessionId);
+        setIsWaitingForRfid(true);
+        setCountdown(30);
+      } catch (err) {
+        setError('Fehler beim Starten der RFID-Registrierung');
+      }
+    };
+
+    // Poll for RFID in useEffect
+    useEffect(() => {
+      if (!isWaitingForRfid || !registrationSessionId) return;
+
+      const interval = setInterval(async () => {
+        try {
+          const response = await fetch(`/api/admin/registration/status/${registrationSessionId}`);
+          const data = await response.json();
+          
+          if (data.status === 'completed') {
+            setFormData(prev => ({ ...prev, rfidTag: data.rfidTag }));
+            setIsWaitingForRfid(false);
+            setRegistrationSessionId(null);
+          } else if (data.status === 'expired') {
+            setIsWaitingForRfid(false);
+            setRegistrationSessionId(null);
+          }
+        } catch (err) {
+          console.error('Polling error:', err);
+        }
+      }, 1000);
+
+      const countdownInterval = setInterval(() => {
+        setCountdown(prev => {
+          if (prev <= 1) {
+            setIsWaitingForRfid(false);
+            return 30;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+
+      return () => {
+        clearInterval(interval);
+        clearInterval(countdownInterval);
+      };
+    }, [isWaitingForRfid, registrationSessionId]);
+
   return (
     <div className="p-4 md:p-6 max-w-2xl mx-auto">
       {/* Header */}
@@ -347,6 +406,61 @@ function UserDetailsPage() {
           </div>
         </div>
       )}
+
+      // In JSX - RFID field for new user
+      {isNew && isEditing && (
+        <div>
+          <label className="text-sm text-gray-500">RFID Tag</label>
+          {isWaitingForRfid ? (
+            <div className="mt-1 p-4 bg-blue-50 border-2 border-blue-300 border-dashed rounded-lg text-center">
+              <div className="animate-pulse text-blue-600 font-medium">
+                Warte auf RFID-Tag... ({countdown}s)
+              </div>
+              <div className="text-sm text-gray-500 mt-2">
+                Halten Sie den RFID-Chip an das Terminal
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsWaitingForRfid(false)}
+                className="mt-3 text-sm text-gray-500 hover:text-gray-700"
+              >
+                Abbrechen
+              </button>
+            </div>
+          ) : formData.rfidTag ? (
+            <div className="flex items-center gap-2 mt-1">
+              <span className="font-mono bg-green-100 text-green-800 px-3 py-2 rounded flex-1">
+                {formData.rfidTag}
+              </span>
+              <button
+                type="button"
+                onClick={() => setFormData(prev => ({ ...prev, rfidTag: '' }))}
+                className="text-gray-500 hover:text-red-600"
+              >
+                ✕
+              </button>
+            </div>
+          ) : (
+            <div className="flex gap-2 mt-1">
+              <input
+                type="text"
+                value={formData.rfidTag}
+                onChange={(e) => setFormData(prev => ({ ...prev, rfidTag: e.target.value }))}
+                className="flex-1 font-mono bg-gray-100 px-3 py-2 rounded border focus:border-blue-500 focus:outline-none"
+                placeholder="RFID manuell eingeben"
+              />
+              <button
+                type="button"
+                onClick={startRfidRegistration}
+                className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+              >
+                Scannen
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+      
     </div>
   );
 }
